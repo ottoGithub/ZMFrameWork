@@ -70,7 +70,7 @@ public class BuildBundleConfigura : ScriptableObject
                 break;
             }
         }
-
+        Save();
     }
     /// <summary>
     /// 储存新的模块资源

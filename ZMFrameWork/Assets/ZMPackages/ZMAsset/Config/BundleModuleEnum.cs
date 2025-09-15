@@ -1,7 +1,7 @@
 /* ----------------------------------------------
 /* Title:AssetBundle模块类
 /* Author:铸梦xy
-/* Data:2025/3/31 4:50:34
+/* Data:6/8/2025 22:13:26
 /* Description:  Represents each module which is used to download an load
 /* Modify:
 ----------------------------------------------*/
@@ -15,7 +15,5 @@ namespace ZM.ZMAsset
 		AdressAsset,
 		WuZhang,
 		ShuangKou,
-		测试资源,
-		饿,
 	}
 }

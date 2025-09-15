@@ -198,23 +198,3 @@ MonoBehaviour:
     - Path...
     rootFolderPathArr: []
     signFolderPathArr: []
-  - bundleid: 0
-    moduleName: 10
-    isAddressableAsset: 0
-    isBuild: 0
-    isAddModule: 0
-    lastClickBtnTime: 0
-    prefabPathArr:
-    - Path...
-    rootFolderPathArr: []
-    signFolderPathArr: []
-  - bundleid: 0
-    moduleName: 11
-    isAddressableAsset: 0
-    isBuild: 0
-    isAddModule: 0
-    lastClickBtnTime: 0
-    prefabPathArr:
-    - Path...
-    rootFolderPathArr: []
-    signFolderPathArr: []

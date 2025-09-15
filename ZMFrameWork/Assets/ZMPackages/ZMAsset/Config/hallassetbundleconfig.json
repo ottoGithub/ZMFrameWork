@@ -25,7 +25,11 @@
       "assetName": "SampleScene.unity",
       "bundleModule": "Hall",
       "isAddressableAsset": false,
-      "bundleDependce": []
+      "bundleDependce": [
+        "hall_loginwindow.uab",
+        "hall_login.uab",
+        "hall_hall.uab"
+      ]
     },
     {
       "path": "Assets/Scenes/TestLoadScene.unity",
@@ -623,6 +627,18 @@
       "bundleModule": "Hall",
       "isAddressableAsset": false,
       "bundleDependce": [
+        "hall_hall.uab",
+        "hall_hallwindow.uab"
+      ]
+    },
+    {
+      "path": "Assets/Item.prefab",
+      "crc": 2605870514,
+      "bundleName": "hall_hallwindow.uab",
+      "assetName": "Item.prefab",
+      "bundleModule": "Hall",
+      "isAddressableAsset": false,
+      "bundleDependce": [
         "hall_hall.uab"
       ]
     },
@@ -635,8 +651,58 @@
       "isAddressableAsset": false,
       "bundleDependce": [
         "hall_login.uab",
+        "hall_loginwindow.uab",
         "hall_hall.uab"
       ]
+    },
+    {
+      "path": "Packages/com.unity.ugui/Editor Resources/Gizmos/TMP - Font Asset Icon.psd",
+      "crc": 3020617257,
+      "bundleName": "hall_loginwindow.uab",
+      "assetName": "TMP - Font Asset Icon.psd",
+      "bundleModule": "Hall",
+      "isAddressableAsset": false,
+      "bundleDependce": []
+    },
+    {
+      "path": "Assets/ZMPackages/ZMUGUIPro/TextMesh Pro/Shaders/TMP_SDF-Mobile.shader",
+      "crc": 400354574,
+      "bundleName": "hall_loginwindow.uab",
+      "assetName": "TMP_SDF-Mobile.shader",
+      "bundleModule": "Hall",
+      "isAddressableAsset": false,
+      "bundleDependce": []
+    },
+    {
+      "path": "Assets/ZMPackages/ZMUGUIPro/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset",
+      "crc": 475427932,
+      "bundleName": "hall_loginwindow.uab",
+      "assetName": "LiberationSans SDF - Fallback.asset",
+      "bundleModule": "Hall",
+      "isAddressableAsset": false,
+      "bundleDependce": [
+        "hall_loginwindow.uab"
+      ]
+    },
+    {
+      "path": "Assets/ZMPackages/ZMUGUIPro/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset",
+      "crc": 3312385559,
+      "bundleName": "hall_loginwindow.uab",
+      "assetName": "LiberationSans SDF.asset",
+      "bundleModule": "Hall",
+      "isAddressableAsset": false,
+      "bundleDependce": [
+        "hall_loginwindow.uab"
+      ]
+    },
+    {
+      "path": "Assets/ZMPackages/ZMUGUIPro/TextMesh Pro/Fonts/LiberationSans.ttf",
+      "crc": 2601784235,
+      "bundleName": "hall_loginwindow.uab",
+      "assetName": "LiberationSans.ttf",
+      "bundleModule": "Hall",
+      "isAddressableAsset": false,
+      "bundleDependce": []
     },
     {
       "path": "Assets//ZMPackages/ZMAsset/Config/hallassetbundleconfig.json",

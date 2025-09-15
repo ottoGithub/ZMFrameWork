@@ -23,4 +23,7 @@ MonoBehaviour:
   - Assets/GameData/Hall/Prefabs/Window
   - Assets/GameData/ShuangKou/Prefabs/Window
   - Assets/GameData/WuZhang/Prefab/Window
-  UsingNameSpaceArr: []
+  UsingNameSpaceArr:
+  - UnityEngine
+  - UnityEngine.UI
+  - ZM.UGUIPro
