@@ -57,15 +57,17 @@ public class WorldManager
         {
             DefaultGameWorld = world;
         }
+        
+        if (!Builder)
+            InitWorldUpdater();
+        Builder = true;
+        
         //初始化当前游戏世界的程序集脚本
         WorldTypeManager.InitializeWorldAssemblies(world, GetBehaviourExecution(world));
         world.OnCreate();
         mWorldList.Add(world);
         OnCreateWorldSuccessListener?.Invoke(CurWorldEnum);
-
-        if (!Builder)
-            InitWorldUpdater();
-        Builder = true;
+        
     }
     
     /// <summary>

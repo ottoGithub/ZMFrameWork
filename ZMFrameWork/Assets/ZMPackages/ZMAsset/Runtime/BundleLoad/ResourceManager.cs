@@ -893,7 +893,7 @@ namespace ZM.ZMAsset
             mAlreayLoadAssetsDic.TryGetValue(crc, out var item);
             if (item==null)
             {
-                return new BundleItem { crc = crc ,refCount = 1};
+                return new BundleItem { crc = crc };
             }
             item.refCount++;
             return item;;

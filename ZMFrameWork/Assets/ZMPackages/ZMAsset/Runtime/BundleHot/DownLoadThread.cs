@@ -17,6 +17,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace ZM.ZMAsset
 {
@@ -180,71 +181,72 @@ namespace ZM.ZMAsset
             });
         }
 
-        public async UniTask<bool> StartDownLoadAsync()
+        public async Task<bool> StartDownLoadAsync()
         {
             try
             {
                 curDownLoadCount++;
                 //文件是否完整
                 bool fileIsComplete = false;
-                await Task.Run(async () =>
+             
+                UnityWebRequest  webrequest = UnityWebRequest.Get(mDownLoadUrl);
+                webrequest.timeout = 60;
+                await webrequest.SendWebRequest();
+                if (webrequest.result == UnityWebRequest.Result.Success)
                 {
-                    Debug.Log("StartDownLoad ModuelEnum:" + mCurBundleModuleEnum + " AssetBundle URL:" + mDownLoadUrl);
-                    
-                    HttpWebRequest request = WebRequest.Create(mDownLoadUrl) as HttpWebRequest;
-                    request.Method = "GET";
-                    //发起请求
-                    HttpWebResponse response = request.GetResponse() as HttpWebResponse;
-
-                    //创建本地文件流
-                    using (FileStream fileStream = File.Create(mFileSavePath))
+                    byte[] buffer = webrequest.downloadHandler.data;
+                    if (buffer!=null && buffer.Length > 0)
                     {
-                        using (var stream = response.GetResponseStream())
+                        //异步写入本地文件
+                        await System.IO.File.WriteAllBytesAsync(mFileSavePath, buffer);
+                        //验证下载下来的文件是否完整，可能会被运营商或第三方拦截篡改
+                        fileIsComplete = MD5.GetMd5FromFile(mFileSavePath) == mHotFileInfo.md5;
+                        mDownLoadSizeKB = buffer.Length;
+                        if (!fileIsComplete)
                         {
-                            byte[] buffer = new byte[512]; //512 
-                            //从字节流中读取字节，读取到buff数组中
-                            int size = stream.Read(buffer, 0, buffer.Length); //700
-                            while (size > 0)
-                            {
-                                fileStream.Write(buffer, 0, size);
-                                size = stream.Read(buffer, 0, buffer.Length);
-                                //1mb=1024kb 1kb=1024字节
-                                mDownLoadSizeKB += size;
-                            }
+                            Debug.LogError("FixDownLoad 文件下载完成，但文件已损坏");
                         }
-                        fileStream.Dispose();
-                        fileStream.Close();
+                       
                     }
-                   
-                    //验证下载下来的文件是否完整，可能会被运营商或第三方拦截篡改
-                    fileIsComplete = MD5.GetMd5FromFile(mFileSavePath) == mHotFileInfo.md5;
-                });
+                    else
+                    {
+                        Debug.LogError("FixDownLoad File DownLoad exception mDownLoadSizeKB ==0");
+                        mDownLoadSizeKB = 0;
+                    }
+                }
+                else
+                {
+                    Debug.LogError("FixDownLoad File DownLoad exception webrequest.result:" +webrequest.result);
+                    mDownLoadSizeKB = 0;
+                }
+                
+                webrequest.Dispose();
                 //文件下载异常 或 下载完成的文件因网络问题或其他问题发生损坏
                 if (mDownLoadSizeKB == 0 || !fileIsComplete)
                 {
-                    Debug.LogError("File DownLoad exception plase check file fileName:" + mHotFileInfo.abName + " fileUrl:" + mDownLoadUrl);
+                    Debug.LogError("FixDownLoad File DownLoad exception plase check file fileName:" + mHotFileInfo.abName + " fileUrl:" + mDownLoadUrl);
                     if (curDownLoadCount >= MAX_TRY_DOWNLOAD_COUNT)
                     {
-                        Debug.LogError("文件下载失败，正在进行重新下载，下载次数" + curDownLoadCount);
+                        Debug.LogError("FixDownLoad 文件下载失败，正在进行重新下载，下载次数" + curDownLoadCount);
                         return await StartDownLoadAsync();
                                  
                     }
                     return false;
                 }
                  
-                Debug.Log("OnDownLoadSuccess ModuleEnum:" + mCurBundleModuleEnum + " AssetBundleUrl:" + mDownLoadUrl + " FileSavePath:" + mFileSavePath);
+                Debug.Log("FixDownLoad OnDownLoadSuccess ModuleEnum:" + mCurBundleModuleEnum + " AssetBundleUrl:" + mDownLoadUrl + " FileSavePath:" + mFileSavePath);
                 return true;
             }
             catch (Exception e)
             {
-                Debug.LogError("DownLoad AssetBundle Error Url:" + mDownLoadUrl + " Exception:" + e);
+                Debug.LogError("FixDownLoad DownLoad AssetBundle Error Url:" + mDownLoadUrl + " Exception:" + e);
                 if (curDownLoadCount > MAX_TRY_DOWNLOAD_COUNT)
                 {
                     return false;
                 }
                 else
                 {
-                    Debug.LogError("文件下载失败，正在进行重新下载，下载次数" + curDownLoadCount);
+                    Debug.LogError("FixDownLoad 文件下载失败，正在进行重新下载，下载次数" + curDownLoadCount);
                     return await StartDownLoadAsync();
                 }
             }

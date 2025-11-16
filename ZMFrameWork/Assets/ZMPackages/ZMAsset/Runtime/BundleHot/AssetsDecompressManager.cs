@@ -66,7 +66,7 @@ namespace ZM.ZMAsset
             mStreamingAssetsBundlePath = BundleSettings.Instance.GetAssetsBuiltinBundlePath(bundleModule);
             mDecompressPath = BundleSettings.Instance.GetAssetsDecompressPath(bundleModule);
             mNeedDecompressFileList.Clear();
-#if UNITY_ANDROID||UNITY_ISO||UNITY_EDITOR
+#if UNITY_ANDROID||UNITY_IOS||UNITY_EDITOR
             //如果文件夹不存在，就进行创建
             if (!Directory.Exists(mDecompressPath))
             {
