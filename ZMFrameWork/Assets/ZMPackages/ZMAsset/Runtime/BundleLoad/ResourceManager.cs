@@ -12,11 +12,13 @@
 ------------------------------------------------------------------------------------------------------------------------------------------------*/
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.U2D;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace ZM.ZMAsset
 {
@@ -344,14 +346,13 @@ namespace ZM.ZMAsset
             mAsyncLoadingTaskList.Add(guid);
             //开始异步加载资源
             GameObject obj = await LoadResourceAsync<GameObject>(path);
-            
             //异步加载完成
             if (obj != null)
             {
                 if (mAsyncLoadingTaskList.Contains(guid))
                 {
                     mAsyncLoadingTaskList.Remove(guid);
-                    CacheObejct nObj = InstantiateObject(path, obj, parent);
+                    CacheObejct nObj = InstantiateObject(path, obj as GameObject, parent);
                     loadAsync?.Invoke(nObj.obj, param1, param2);
                 }
             }
@@ -360,7 +361,6 @@ namespace ZM.ZMAsset
                 mAsyncLoadingTaskList.Remove(guid);
                 Debug.LogError("Async Load GameObject is Null Path:" + path);
             }
-            
         }
         /// <summary>
         /// 异步克隆对象 可通过await进行等待
@@ -503,6 +503,8 @@ namespace ZM.ZMAsset
             }
             return loadid;
         }
+
+      
 
         /// <summary>
         /// 从对象池中取出对象
@@ -719,14 +721,13 @@ namespace ZM.ZMAsset
         /// <typeparam name="T"></typeparam>
         /// <param name="path"></param>
         /// <returns></returns>
-        public void LoadResourceAsync<T>(string path, System.Action<UnityEngine.Object> loadFinish) where T : UnityEngine.Object
+        public async UniTask<T> LoadResourceAsync<T>(string path) where T : UnityEngine.Object
         {
 
             if (string.IsNullOrEmpty(path))
             {
                 Debug.LogError("path is Null , return null!");
-                loadFinish?.Invoke(null);
-                return;
+                return null;
             }
             uint crc = Crc32.GetCrc32(path);
             //从缓存中获取我们Bundleitem
@@ -735,8 +736,7 @@ namespace ZM.ZMAsset
             //如果BundleItem中的对象已经加载过，就直接返回该对象
             if (item.obj != null)
             {
-                loadFinish?.Invoke(item.obj as T);
-                return;
+                return item.obj as T;
             }
 
             //声明新对象
@@ -745,18 +745,17 @@ namespace ZM.ZMAsset
             if (BundleSettings.Instance.loadAssetType == LoadAssetEnum.Editor)
             {
                 obj = LoadAssetsFormEditor<T>(path);
-                loadFinish?.Invoke(obj);
+                return obj;
             }
 #endif
             if (obj == null)
             {
                 //加载该路径对应的AssetBundle
-                item = AssetBundleManager.Instance.LoadAssetBundle(crc);
+                item = await AssetBundleManager.Instance.LoadAssetBundleAsync(crc,null);
                 if (item != null)
                 {
                     if (item.obj != null)
                     {
-                        loadFinish?.Invoke(item.obj);
                         item.path = path;
                         item.crc = crc;
                         item.refCount++;
@@ -765,29 +764,24 @@ namespace ZM.ZMAsset
                     else
                     {
                         //通过异步方式加载AssetBudnle
-                        AssetBundleRequest request = item.assetBundle.LoadAssetAsync<T>(item.assetName);
-                        request.completed += (asyncOption) =>
+                        item.obj = await item.assetBundle.LoadAssetAsync<T>(item.assetName);
+                        //资源加载完成
+                        item.path = path;
+                        item.crc = crc;
+                        item.refCount++;
+                        if (!mAlreayLoadAssetsDic.ContainsKey(crc))
                         {
-                            //资源加载完成
-                            UnityEngine.Object loadObj = (asyncOption as AssetBundleRequest).asset;
-                            item.obj = loadObj;
-                            item.path = path;
-                            item.crc = crc;
-                            item.refCount++;
-                            if (!mAlreayLoadAssetsDic.ContainsKey(crc))
-                            {
-                                mAlreayLoadAssetsDic.Add(crc, item);
-                            }
-                            loadFinish?.Invoke(item.obj);
-                        };
-
+                            mAlreayLoadAssetsDic.Add(crc, item);
+                        }
+                        return item.obj as T;
                     }
                 }
                 else
                 {
                     Debug.LogError("item is null ...Path:" + path);
-                    loadFinish?.Invoke(null);
+                    return null;
                 }
+
             }
             else
             {
@@ -797,6 +791,7 @@ namespace ZM.ZMAsset
                 //缓存已经加载过的资源
                 mAlreayLoadAssetsDic.Add(crc, item);
             }
+            return item.obj as T;
         }
         /// <summary>
         /// 异步加载资源，可使用await进行等待 外部直接调用，仅仅加载不需要实例化的资源
@@ -879,10 +874,7 @@ namespace ZM.ZMAsset
             return null;
         }
 
-        public async UniTask<T> LoadResourceAsync<T>(string path) where T : UnityEngine.Object
-        {
-            return await LoadResourceAsyncAas<T>(path, BundleModuleEnum.None);
-        }
+      
         /// <summary>
         /// 从缓存中获取我们Bundleitem
         /// </summary>
@@ -1129,7 +1121,6 @@ namespace ZM.ZMAsset
         }
 
 
-
         /// <summary>
         /// 异步加载图片
         /// </summary>
@@ -1137,31 +1128,29 @@ namespace ZM.ZMAsset
         /// <param name="loadAsync">异步加载回调</param>
         /// <param name="param1">参数1</param>
         /// <returns></returns>
-        public long LoadTextureAsync(string path, Action<Texture, object> loadAsync, object param1 = null)
+        public async Task<long> LoadTextureAsync(string path, Action<Texture, object> loadAsync, object param1 = null)
         {
             if (path.EndsWith(".jpg") == false) path += ".jpg";
 
             long guid = mAsyncTaskGuid;
             mAsyncLoadingTaskList.Add(guid);
-            LoadResourceAsync<Texture>(path, (obj) =>
+            Texture obj = await LoadResourceAsync<Texture>(path);
+            if (obj != null)
             {
-
-                if (obj != null)
-                {
-                    if (mAsyncLoadingTaskList.Contains(guid))
-                    {
-                        mAsyncLoadingTaskList.Remove(guid);
-                        loadAsync?.Invoke(obj as Texture, param1);
-                    }
-                }
-                else
+                if (mAsyncLoadingTaskList.Contains(guid))
                 {
                     mAsyncLoadingTaskList.Remove(guid);
-                    Debug.LogError("Async Load texture is Null,Path:" + path);
+                    loadAsync?.Invoke(obj as Texture, param1);
                 }
-            });
+            }
+            else
+            {
+                mAsyncLoadingTaskList.Remove(guid);
+                Debug.LogError("Async Load texture is Null,Path:" + path);
+            }
             return guid;
         }
+
         /// <summary>
         /// 异步加载Sprite
         /// </summary>
@@ -1170,37 +1159,36 @@ namespace ZM.ZMAsset
         /// <param name="setNativeSize">是否设置未美术图的原始尺寸</param>
         /// <param name="loadAsync">加载完成的回调</param>
         /// <returns></returns>
-        public long LoadSpriteAsync(string path, Image image, bool setNativeSize = false, Action<Sprite> loadAsync = null)
+        public async Task<long> LoadSpriteAsync(string path, Image image, bool setNativeSize = false,
+            Action<Sprite> loadAsync = null)
         {
             if (path.EndsWith(".png") == false) path += ".png";
 
             long guid = mAsyncTaskGuid;
             mAsyncLoadingTaskList.Add(guid);
-            LoadResourceAsync<Sprite>(path, (obj) =>
+            Sprite obj= await LoadResourceAsync<Sprite>(path);
+            if (obj != null)
             {
-                if (obj != null)
+                if (mAsyncLoadingTaskList.Contains(guid))
                 {
-                    if (mAsyncLoadingTaskList.Contains(guid))
+                    Sprite sprite = obj as Sprite;
+                    if (image != null)
                     {
-                        Sprite sprite = obj as Sprite;
-                        if (image != null)
+                        image.sprite = sprite;
+                        if (setNativeSize)
                         {
-                            image.sprite = sprite;
-                            if (setNativeSize)
-                            {
-                                image.SetNativeSize();
-                            }
+                            image.SetNativeSize();
                         }
-                        mAsyncLoadingTaskList.Remove(guid);
-                        loadAsync?.Invoke(sprite);
                     }
-                }
-                else
-                {
                     mAsyncLoadingTaskList.Remove(guid);
-                    Debug.LogError("Async Load Sprite is Null,Path:" + path);
+                    loadAsync?.Invoke(sprite);
                 }
-            });
+            }
+            else
+            {
+                mAsyncLoadingTaskList.Remove(guid);
+                Debug.LogError("Async Load Sprite is Null,Path:" + path);
+            }
             return guid;
         }
         /// <summary>

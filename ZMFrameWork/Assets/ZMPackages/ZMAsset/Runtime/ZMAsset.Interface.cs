@@ -249,9 +249,9 @@ namespace ZM.ZMAsset
         /// <param name="loadAsync">异步加载回调</param>
         /// <param name="param1">参数1</param>
         /// <returns></returns>
-        public static long LoadTextureAsync(string path, Action<Texture, object> loadAsync, object param1 = null)
+        public static void LoadTextureAsync(string path, Action<Texture, object> loadAsync, object param1 = null)
         {
-            return Instance.mResource.LoadTextureAsync(path,loadAsync,param1);
+            Instance.mResource.LoadTextureAsync(path,loadAsync,param1);
         }
         /// <summary>
         /// 可通过await进行等待的异步加载Sprite
@@ -274,9 +274,9 @@ namespace ZM.ZMAsset
         /// <param name="setNativeSize">是否设置未美术图的原始尺寸</param>
         /// <param name="loadAsync">加载完成的回调</param>
         /// <returns></returns>
-        public static long LoadSpriteAsync(string path, Image image, bool setNativeSize = false, Action<Sprite> loadAsync = null)
+        public static void LoadSpriteAsync(string path, Image image, bool setNativeSize = false, Action<Sprite> loadAsync = null)
         {
-            return Instance.mResource.LoadSpriteAsync(path, image, setNativeSize,loadAsync);
+            Instance.mResource.LoadSpriteAsync(path, image, setNativeSize,loadAsync);
         }
         /// <summary>
         /// 可通过await进行等待的异步加载Sprite

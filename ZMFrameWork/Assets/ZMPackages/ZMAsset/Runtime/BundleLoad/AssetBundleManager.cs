@@ -10,6 +10,8 @@
 *
 * Modify: 
 ------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+using System;
 using Newtonsoft.Json;
 using System.Collections;
 using System.Collections.Generic;
@@ -117,6 +119,10 @@ namespace ZM.ZMAsset
         /// AssetBundle类对象池
         /// </summary>
         public ClassObjectPool<AssetBundleCache> mBundleCachePool = new ClassObjectPool<AssetBundleCache>(200);
+        /// <summary>
+        /// 异步加载AssetBundle字典
+        /// </summary>
+        private Dictionary<string,UniTaskCompletionSource> mAsyncLoadBundleActionDic = new Dictionary<string, UniTaskCompletionSource>();
         /// <summary>
         /// AssetBundle配置文件加载路径
         /// </summary>
@@ -317,6 +323,47 @@ namespace ZM.ZMAsset
                 return null;
             }
         }
+        public async UniTask<BundleItem> LoadAssetBundleAsync(uint crc,Action<BundleItem> loadCallback)
+        {
+            //先到所有的AssetBunel资源字典中查询一下这个资源存不存在，如果存在说明该资源已经打成了AssetBundle包，这种情况下就可以直接加载了
+            //如果不存在，则说明该资源 不属于AssetBUnle 给与错误提示。
+            mAllBundleAssetDic.TryGetValue(crc, out var item);
+
+            if (item != null)
+            {
+                //如果AssetBundle为空，说明该资源所在的AssetBundle没有加载进内存，这种情况我们就需要加载该AssetBundle
+                if (item.assetBundle != null)
+                {
+                    loadCallback?.Invoke(item);
+                    return item;
+                }
+                
+                item.assetBundle = await LoadAssetBundleAsync(item.bundleName,item.bundleModuleType);
+
+                if (item.assetBundle == null)
+                {
+                    Debug.LogError("Start AddressableSystem Load:" + item.bundleName);
+                    loadCallback?.Invoke(null);
+                    return null;
+                }
+                //需要加载这个AssetBundle依赖的其他的AssetBundle
+                foreach (var bundleName in item.bundleDependce)
+                {
+                    if (item.bundleName!=bundleName)
+                    {
+                        await LoadAssetBundleAsync(bundleName, item.bundleModuleType);
+                    }
+                }
+                loadCallback?.Invoke(item);
+                return item;
+            }
+            else
+            {
+                Debug.LogError("assets not exists AssetbundleConfig , LoadAssetBundle failed! Crc:"+crc);
+                loadCallback?.Invoke(null);
+                return null;
+            }
+        }
         public async UniTask<BundleItem> LoadAssetBundleAddressable(uint crc, BundleModuleEnum moduleEnum = BundleModuleEnum.None)
         {
             BundleItem item = null;
@@ -332,7 +379,7 @@ namespace ZM.ZMAsset
  
                 if (item.assetBundle == null && !item.isAddressableAsset)
                 {
-                    item.assetBundle = LoadAssetBundle(item.bundleName, item.bundleModuleType);
+                    item.assetBundle = await LoadAssetBundleAsnyc(item.bundleName, item.bundleModuleType);
                 }
                 else if (item.assetBundle == null)
                 {
@@ -343,7 +390,7 @@ namespace ZM.ZMAsset
                 {
                     if (item.bundleName != bundleName)
                     {
-                        LoadAssetBundle(bundleName, item.bundleModuleType);
+                       await LoadAssetBundleAsnyc(bundleName, item.bundleModuleType);
                     }
                 }
                 return item;
@@ -434,7 +481,127 @@ namespace ZM.ZMAsset
             }
             return bundle.assetBundle;
         }
+        private async UniTask<AssetBundle> LoadAssetBundleAsync(string bundleName, BundleModuleEnum bundleModuleType)
+        {
+            AssetBundleCache bundle = null;
+            mAllAlreadyLoadBundleDic.TryGetValue(bundleName,out bundle);
+            
+            if (bundle==null||(bundle!=null&&bundle.assetBundle==null))
+            {
+                mAsyncLoadBundleActionDic.TryGetValue(bundleName,out var taskCompletionSource);
+                if (taskCompletionSource != null)
+                {
+                    await taskCompletionSource.Task;
+                    mAllAlreadyLoadBundleDic.TryGetValue(bundleName,out var bundleCache);
+                    return bundleCache.assetBundle;
+                }
 
+                //从类对象池中取出一个AssetBundleCache
+                bundle= mBundleCachePool.Spawn();
+                //计算出AssetBundle加载路径
+                string hotFilePath = BundleSettings.Instance.GetHotAssetsPath(bundleModuleType)+bundleName;
+                //获取热更模块
+                HotAssetsModule module= ZMAsset.GetHotAssetsModule(bundleModuleType);
+                bool isHotPath = File.Exists(hotFilePath);
+                //通过是否是热更路径 计算出AssetBundle加载的路径
+                string bundlePath = isHotPath ? hotFilePath : BundleSettings.Instance.GetAssetsDecompressPath(bundleModuleType) + bundleName;
+
+                //判断AssetBUndle是否加密，如果加密了，则需要解密
+                if (BundleSettings.Instance.bundleEncrypt.isEncrypt)
+                {
+                    byte[] bytes= AES.AESFileByteDecrypt(bundlePath, BundleSettings.Instance.bundleEncrypt.encryptKey);
+                    mAsyncLoadBundleActionDic.Add(bundleName,new UniTaskCompletionSource());
+                    try
+                    {
+                        bundle.assetBundle = await AssetBundle.LoadFromMemoryAsync(bytes);
+                    }
+                    catch (Exception e)
+                    {
+                        mAsyncLoadBundleActionDic[bundleName].TrySetCanceled();
+                        mAsyncLoadBundleActionDic.Remove(bundleName);
+                        Debug.LogError(e);
+                    }
+                }
+                else
+                {
+                    //通过LoadFromFile 加载AssetBundle 是最快的
+                    mAsyncLoadBundleActionDic.Add(bundleName,new UniTaskCompletionSource());
+                    try
+                    {
+                        bundle.assetBundle = await AssetBundle.LoadFromFileAsync(bundlePath);
+                    }
+                    catch (Exception e)
+                    {
+                        mAsyncLoadBundleActionDic[bundleName].TrySetCanceled();
+                        mAsyncLoadBundleActionDic.Remove(bundleName);
+                        Debug.LogError(e);
+                    }
+                   
+                }
+                if (bundle.assetBundle==null)
+                {
+                    Debug.LogError("AssetBundle load failed bundlePath:"+ bundlePath);
+                    return null;
+                }
+                //AssetBundle引用计数增加
+                bundle.referenceCount++;
+                mAllAlreadyLoadBundleDic.Add(bundleName,bundle);
+                //设置任务为完成状态
+                mAsyncLoadBundleActionDic[bundleName].TrySetResult();
+                mAsyncLoadBundleActionDic.Remove(bundleName);
+            }
+            else
+            {
+                //AssetBunle已经加载过了
+                bundle.referenceCount++;
+            }
+            return bundle.assetBundle;
+        }
+        
+        private async UniTask<AssetBundle> LoadAssetBundleAsnyc(string bundleName, BundleModuleEnum bundleModuleType)
+        {
+            AssetBundleCache bundle = null;
+            mAllAlreadyLoadBundleDic.TryGetValue(bundleName,out bundle);
+
+            if (bundle==null||(bundle!=null&&bundle.assetBundle==null))
+            {
+                //从类对象池中取出一个AssetBundleCache
+                bundle= mBundleCachePool.Spawn();
+                //计算出AssetBundle加载路径
+                string hotFilePath = BundleSettings.Instance.GetHotAssetsPath(bundleModuleType)+bundleName;
+                //获取热更模块
+                HotAssetsModule module= ZMAsset.GetHotAssetsModule(bundleModuleType);
+                bool isHotPath = File.Exists(hotFilePath);
+                //通过是否是热更路径 计算出AssetBundle加载的路径
+                string bundlePath = isHotPath ? hotFilePath : BundleSettings.Instance.GetAssetsDecompressPath(bundleModuleType) + bundleName;
+
+                //判断AssetBUndle是否加密，如果加密了，则需要解密
+                if (BundleSettings.Instance.bundleEncrypt.isEncrypt)
+                {
+                    byte[] bytes= AES.AESFileByteDecrypt(bundlePath, BundleSettings.Instance.bundleEncrypt.encryptKey);
+                    bundle.assetBundle= await AssetBundle.LoadFromMemoryAsync(bytes);
+                }
+                else
+                {
+                    //通过LoadFromFile 加载AssetBundle 是最快的
+                    bundle.assetBundle = await AssetBundle.LoadFromFileAsync(bundlePath);
+                }
+                if (bundle.assetBundle==null)
+                {
+                    Debug.LogError("AssetBundle load failed bundlePath:"+ bundlePath);
+                    return null;
+                }
+                //AssetBundle引用计数增加
+                bundle.referenceCount++;
+                mAllAlreadyLoadBundleDic.Add(bundleName,bundle);
+            }
+            else
+            {
+                //AssetBunle已经加载过了
+                bundle.referenceCount++;
+            }
+            return bundle.assetBundle;
+        }
 
         /// <summary>
         /// 释放AssetBundle 并且释放AssetBundle占用的内存资源

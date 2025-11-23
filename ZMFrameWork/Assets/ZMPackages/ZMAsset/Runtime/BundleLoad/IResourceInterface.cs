@@ -11,6 +11,7 @@
 * Modify: 
 ------------------------------------------------------------------------------------------------------------------------------------------------*/
 using System;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -61,9 +62,9 @@ public interface IResourceInterface
 
     UnityEngine.Sprite LoadPNGAtlasSprite(string atlasPath, string spriteName);
 
-    long LoadTextureAsync(string path, Action<Texture, object> loadAsync, object param1 = null);
+    Task<long> LoadTextureAsync(string path, Action<Texture, object> loadAsync, object param1 = null);
 
-    long LoadSpriteAsync(string path, Image image, bool setNativeSize = false, Action<Sprite> loadAsync = null);
+    Task<long> LoadSpriteAsync(string path, Image image, bool setNativeSize = false, Action<Sprite> loadAsync = null);
 
     void ClearAllAsyncLoadTask();
 
